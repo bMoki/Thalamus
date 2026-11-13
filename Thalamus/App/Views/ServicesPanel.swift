@@ -19,11 +19,17 @@ struct ServicesPanel: View {
                     branchCard(status)
                     if !status.services.isEmpty {
                         sectionTitle("Serviços")
+                        let reservesLinkSlot = status.services.contains { $0.pageURL != nil }
                         card {
                             ForEach(Array(status.services.enumerated()), id: \.element.id) { index, service in
                                 VStack(spacing: 0) {
                                     row(name: service.id, detail: service.port.map { ":\($0)" },
                                         state: service.state, indicator: .service(service.id), isFirst: index == 0) {
+                                        if let url = service.pageURL {
+                                            openInBrowser(url, service: service)
+                                        } else if reservesLinkSlot {
+                                            linkSlot
+                                        }
                                         serviceActions(service)
                                     }
                                     if service.state == .falhou {
@@ -250,6 +256,20 @@ struct ServicesPanel: View {
                 .disabled(service.session == nil || service.state == .parado)
         }
         .disabled(ns.activity[branch] != nil || ns.dependencies.isInstalling(in: branch))
+    }
+
+    private func openInBrowser(_ url: URL, service: NsStatus.Service) -> some View {
+        let isRunning = service.state == .rodando
+        return iconAction(.openInBrowser, title: isRunning ? "Abrir \(service.id) no navegador" : "O Serviço não está rodando") {
+            NSWorkspace.shared.open(url)
+        }
+        .disabled(!isRunning)
+    }
+
+    private var linkSlot: some View {
+        iconAction(.openInBrowser, title: "") {}
+            .hidden()
+            .accessibilityHidden(true)
     }
 
     private func iconAction(_ symbol: Icon, title: String, perform: @escaping () async -> Void) -> some View {

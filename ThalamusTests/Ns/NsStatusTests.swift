@@ -118,3 +118,25 @@ nonisolated let sampleStatus = NsStatus(
     let status = try JSONDecoder().decode(NsStatus.self, from: Data(json.utf8))
     #expect(status.branches.map(\.createdAt) == [Date(timeIntervalSince1970: 1_793_536_200.25), nil, nil])
 }
+
+@Test func onlyServicesWithAPageOfferTheirPortlessAddress() throws {
+    let json = #"""
+        {"baseRepos":[],"branches":[{"branch":"NS-1","path":"/w/NS-1",
+          "services":{"db":"rodando","backend":"rodando","frontend":"rodando","manager":"parado","reportServer":"rodando"},
+          "urls":{"backend":"https://ns-1.api.neurosteps.localhost:1355/api",
+                  "frontend":"https://ns-1.web.neurosteps.localhost:1355",
+                  "manager":"https://ns-1.manager.neurosteps.localhost:1355",
+                  "reportServer":"https://ns-1.report-server.neurosteps.localhost:1355"}}]}
+        """#
+    let services = try JSONDecoder().decode(NsStatus.self, from: Data(json.utf8)).branches[0].services
+    #expect(services.map(\.pageURL?.absoluteString) == [
+        nil, "https://ns-1.web.neurosteps.localhost:1355", "https://ns-1.manager.neurosteps.localhost:1355", nil,
+    ])
+    #expect(services[0].url?.absoluteString == "https://ns-1.api.neurosteps.localhost:1355/api")
+}
+
+@Test func anOlderNsWithoutUrlsLeavesServicesWithoutAnAddress() throws {
+    let json = #"{"baseRepos":[],"branches":[{"branch":"NS-1","path":"/w/NS-1","services":{"frontend":"rodando"}}]}"#
+    let services = try JSONDecoder().decode(NsStatus.self, from: Data(json.utf8)).branches[0].services
+    #expect(services.map(\.pageURL) == [nil])
+}
