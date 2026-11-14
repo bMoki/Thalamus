@@ -36,6 +36,7 @@ nonisolated enum Theme {
     static var card: Color { flat(palette.surfaces.card) }
     static var bubble: Color { flat(palette.surfaces.bubble) }
     static var hover: Color { palette.surfaces.hover }
+    static var hoverSoft: Color { palette.surfaces.hover.opacity(0.55) }
     static var hoverRaised: Color { style.boxes == .lines ? palette.surfaces.hover : palette.surfaces.hoverRaised }
     static var tip: Color { palette.surfaces.tip }
     static var terminal: Color { flat(palette.surfaces.terminal) }

@@ -47,9 +47,7 @@ struct SessionRow: View {
         }
         .padding(.horizontal, Theme.space(.s10))
         .frame(height: Theme.size(.s32))
-        .hoverFill(hovering, selected: isSelected)
-        .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .modifier(SidebarRowSurface(hovering: $hovering, isFocused: isSelected))
         .simultaneousGesture(TapGesture().onEnded {
             guard !isEditing else { return }
             select()

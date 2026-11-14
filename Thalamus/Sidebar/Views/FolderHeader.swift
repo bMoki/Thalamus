@@ -33,7 +33,7 @@ struct FolderHeader: View {
         }
         .padding(.horizontal, Theme.space(.s10))
         .frame(height: Theme.size(.s32))
-        .sidebarHeaderRow(hovering: $hovering, isSelected: isSelected, open: open)
+        .sidebarHeaderRow(hovering: $hovering, isFocused: isSelected, open: open)
         .thalamusContextMenu([
             ThalamusMenuSection(id: "new", items: [
                 ThalamusMenuItem(id: "new-session", title: "Nova sessão aqui", action: newSession),

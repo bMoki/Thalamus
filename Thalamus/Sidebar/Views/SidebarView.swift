@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import HarnessCore
 
@@ -9,6 +10,7 @@ struct SidebarView: View {
     var collapse: () -> Void = {}
 
     @State private var tipTask: Task<Void, Never>?
+    @State private var hover = SidebarHover()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -119,6 +121,12 @@ struct SidebarView: View {
         .frame(maxHeight: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Sidebar")
+        .environment(hover)
+        .onChange(of: shownRows(in: groups)) { hover.clear() }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)
+            .merge(with: NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification))) { _ in
+            hover.clear()
+        }
         .onChange(of: ns.status, initial: true) {
             if let status = ns.status { workspace.layout = workspace.layout.pruned(by: status) }
         }
@@ -134,13 +142,22 @@ struct SidebarView: View {
                          @ViewBuilder actions: @escaping () -> some View) -> some View {
         let searching = !workspace.search.isEmpty
         let folders = groups[group]
-        let shown = workspace.layout.shown(folders, in: group, focus: selectedRow, searching: searching)
+        let shown = shownFolders(of: group, in: groups)
         SidebarCollapsibleTitle(title: group.title, hidden: folders.count - shown.count,
                                 isExpanded: workspace.layout.isExpanded(group, searching: searching),
                                 isEnabled: !searching, toggle: { workspace.layout.toggleCollapsed(group) },
                                 actions: actions)
             .padding(.top, top)
         ForEach(shown) { folder($0).transition(.opacity) }
+    }
+
+    private func shownFolders(of group: SidebarGroup, in groups: SidebarGroups) -> [SidebarGroups.Folder] {
+        workspace.layout.shown(groups[group], in: group, focus: selectedRow, searching: !workspace.search.isEmpty)
+    }
+
+    private func shownRows(in groups: SidebarGroups) -> [SidebarRow] {
+        SidebarGroup.allCases.flatMap { shownFolders(of: $0, in: groups) }.map(SidebarRow.init)
+            + (groups.archived.isEmpty ? [] : [.archived])
     }
 
     private var selectedRow: SidebarRow? {

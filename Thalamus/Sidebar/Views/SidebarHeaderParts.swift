@@ -147,12 +147,44 @@ enum FavoriteTitle {
 }
 
 extension View {
-    func sidebarHeaderRow(hovering: Binding<Bool>, isSelected: Bool, open: @escaping () -> Void) -> some View {
-        hoverFill(hovering.wrappedValue, selected: isSelected)
-            .contentShape(Rectangle())
-            .onHover { hovering.wrappedValue = $0 }
+    func sidebarHeaderRow(hovering: Binding<Bool>, isFocused: Bool, open: @escaping () -> Void) -> some View {
+        modifier(SidebarRowSurface(hovering: hovering, isFocused: isFocused))
             .onTapGesture(perform: open)
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .accessibilityAddTraits(isFocused ? .isSelected : [])
+    }
+}
+
+struct SidebarRowSurface: ViewModifier {
+    @Binding var hovering: Bool
+    let isFocused: Bool
+
+    @Environment(SidebarHover.self) private var hover: SidebarHover?
+    @State private var id = UUID()
+
+    func body(content: Content) -> some View {
+        content
+            .background(fill, in: RoundedRectangle(cornerRadius: Theme.radius(.r8), style: .continuous))
+            .overlay(alignment: .leading) {
+                if isFocused, Theme.style.marks == .characters {
+                    Text("▌")
+                        .font(Theme.font(.body))
+                        .foregroundStyle(Theme.accent)
+                        .accessibilityHidden(true)
+                }
+            }
+            .contentShape(Rectangle())
+            .onHover { inside in
+                hovering = inside
+                if inside { hover?.enter(id) } else { hover?.leave(id) }
+            }
+            .onChange(of: hover?.row) { _, row in
+                if hovering, row != id { hovering = false }
+            }
+    }
+
+    private var fill: Color {
+        if isFocused { return Theme.style.marks == .characters ? Theme.hover : Theme.accentFill }
+        return hovering && (hover == nil || hover?.row == id) ? Theme.hoverSoft : .clear
     }
 }
 
@@ -170,13 +202,13 @@ struct ArchivedRow: View {
                 .frame(width: Theme.size(.s16))
             Text(SidebarRow.archivedTitle)
                 .font(Theme.font(.body, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
+                .foregroundStyle(isSelected ? Theme.text : Theme.textSecondary)
             Spacer(minLength: Theme.space(.s4))
             SessionCountLabel(count: count)
         }
         .padding(.horizontal, Theme.space(.s10))
         .frame(height: Theme.size(.s32))
-        .sidebarHeaderRow(hovering: $hovering, isSelected: isSelected, open: open)
+        .sidebarHeaderRow(hovering: $hovering, isFocused: isSelected, open: open)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
     }
