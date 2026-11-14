@@ -183,8 +183,61 @@ nonisolated enum RecordedSession {
             "request": ["subtype": "can_use_tool", "tool_name": "AskUserQuestion",
                         "input": ["questions": questions], "tool_use_id": "toolu_ask_many"],
         ]
-        let data = try JSONSerialization.data(withJSONObject: request)
-        return try claudePermission().untilAsking.dropLast() + [String(decoding: data, as: UTF8.self)]
+        return try claudePermission().untilAsking.dropLast() + [json(request)]
+    }
+
+    static func claudeLong(_ count: Int) throws -> [String] {
+        let hello = try claude("hello")
+        guard let firstDelta = hello.firstIndex(where: { $0.contains(#""text_delta""#) }),
+              let session = hello.first.flatMap(sessionID(in:))
+        else { throw CocoaError(.fileReadCorruptFile) }
+        let texts = (1...count).map(longMessage)
+        let whole = Array(texts.joined(separator: "\n\n"))
+        let size = 48
+        let chunks = stride(from: 0, to: whole.count, by: size).map { String(whole[$0..<min($0 + size, whole.count)]) }
+        let deltas = try chunks.map { chunk in
+            try json(["type": "stream_event", "session_id": session,
+                      "event": ["type": "content_block_delta", "index": 0,
+                                "delta": ["type": "text_delta", "text": chunk]]])
+        }
+        let answer = try json(["type": "assistant", "session_id": session,
+                               "message": ["id": "msg_long", "type": "message", "role": "assistant",
+                                           "content": texts.map { ["type": "text", "text": $0] }]])
+        let rest = hello[firstDelta...].filter { !$0.contains(#""text_delta""#) && !$0.contains(#""type":"assistant""#) }
+        return Array(hello[..<firstDelta]) + deltas + [answer] + rest
+    }
+
+    static let longMessagePrefix = "Mensagem "
+
+    static func longMessageTitle(_ number: Int) -> String {
+        "\(longMessagePrefix)\(number)."
+    }
+
+    private static func longMessage(_ number: Int) -> String {
+        let title = longMessageTitle(number)
+        switch number % 6 {
+        case 0:
+            let rows = (1...6).map { "| Linha \($0) | \($0 * number) |" }
+            return ([title, "", "| Coluna | Valor |", "|---|---|"] + rows).joined(separator: "\n")
+        case 5:
+            let diff = (1...4).flatMap { ["-let antigo\($0) = \($0)", "+let novo\($0) = \($0 * number)"] }
+            return ([title, "", "```diff"] + diff + ["```"]).joined(separator: "\n")
+        case 3:
+            let code = (1...8).map { "let valor\($0) = \($0 * number)" }
+            return ([title, "", "```swift"] + code + ["```"]).joined(separator: "\n")
+        default:
+            let sentence = "Um parágrafo que ocupa espaço para a conversa ficar longa. "
+            return title + " " + String(repeating: sentence, count: 1 + number % 5)
+        }
+    }
+
+    private static func sessionID(in line: String) -> String? {
+        let data = Data(line.utf8)
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["session_id"] as? String
+    }
+
+    private static func json(_ object: [String: Any]) throws -> String {
+        try String(decoding: JSONSerialization.data(withJSONObject: object), as: UTF8.self)
     }
 
     static func optionLabel(_ option: Int, of question: Int) -> String {

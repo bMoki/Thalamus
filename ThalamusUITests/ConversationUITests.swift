@@ -368,6 +368,77 @@ final class ConversationUITests: XCTestCase {
     }
 }
 
+extension ConversationUITests {
+    private static let longSession = 80
+
+    @MainActor
+    private func launchWithLongSession() throws -> XCUIApplication {
+        try claude.on(FakeCLI.userTurn, reply: RecordedSession.claudeLong(Self.longSession))
+        try claude.answerTitles(with: "Conversa longa")
+        let app = launch(projectSetup: "echo nota > notas.txt")
+        startConversation("Escreva bastante.", in: app)
+        require(text(containing: RecordedSession.longMessageTitle(Self.longSession), in: app), in: app)
+        return app
+    }
+
+    @MainActor
+    func testALongAnswerStillShowsMessagesAfterStreaming() throws {
+        let app = try launchWithLongSession()
+
+        XCTAssertEqual(shownMessages(in: app).last, Self.longSession)
+    }
+
+    @MainActor
+    func testClosingAFileReturnsToTheMessageBeingRead() throws {
+        let app = try launchWithLongSession()
+        app.typeKey("0", modifierFlags: [.command, .option])
+        let file = app.buttons["notas.txt"]
+        require(file, in: app)
+        let transcript = app.scrollViews["transcript"]
+        for _ in 1...6 { transcript.scroll(byDeltaX: 0, deltaY: 600) }
+        let reading = try XCTUnwrap(shownMessages(in: app).first, "blank after scrolling up")
+
+        file.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).click()
+        let close = app.buttons["Fechar notas.txt"]
+        require(close, in: app)
+        close.click()
+
+        require(transcript, in: app)
+        let back = try XCTUnwrap(shownMessages(in: app).first, "blank back at the reading point")
+        XCTAssertTrue((reading - 1...reading).contains(back), "back at \(back), not at \(reading)")
+    }
+
+    @MainActor
+    func testReopeningALongSessionShowsMessages() throws {
+        try launchWithLongSession().terminate()
+
+        let app = launch()
+        let row = sidebarRow("project", in: app)
+        require(row, in: app)
+        row.click()
+
+        require(app.scrollViews["transcript"], in: app)
+        XCTAssertFalse(shownMessages(in: app).isEmpty)
+    }
+
+    @MainActor
+    private func shownMessages(in app: XCUIApplication) -> [Int] {
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let prefix = RecordedSession.longMessagePrefix
+        let transcript = app.scrollViews["transcript"]
+        let frame = transcript.frame
+        let texts = transcript.staticTexts
+            .matching(NSPredicate(format: "value BEGINSWITH %@ OR label BEGINSWITH %@", prefix, prefix))
+            .allElementsBoundByIndex
+        return texts.filter { frame.intersects($0.frame) && $0.frame.height > 0 }
+            .sorted { $0.frame.minY < $1.frame.minY }
+            .compactMap { element in
+                let text = (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+                return Int(text.dropFirst(prefix.count).prefix { $0.isNumber })
+            }
+    }
+}
+
 private extension XCUIElement {
     var center: XCUICoordinate { coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)) }
 }
