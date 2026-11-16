@@ -12,6 +12,7 @@ struct ChatView: View {
     @State private var nearBottom = true
     @State private var scrollPosition = ScrollPosition()
     @State private var readingSpot = ReadingSpot()
+    @State private var endFollower = EndFollower()
     @State private var tableLock = TableScrollLock()
     @State private var transcriptHeight: CGFloat = .infinity
 
@@ -31,6 +32,7 @@ struct ChatView: View {
     }
 
     private static let questionShare: CGFloat = 0.6
+    private static let partlyVisible = 0.01
 
     var body: some View {
         InspectorSplit(isShown: pane != .closed) {
@@ -179,12 +181,14 @@ struct ChatView: View {
                         .id("typing")
                     }
                 }
+                .scrollTargetLayout()
                 .padding(.horizontal, Theme.space(.s32))
                 .padding(.top, Theme.space(.s28))
                 .padding(.bottom, Theme.space(.s30))
                 .frame(maxWidth: 784, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
+            .accessibilityIdentifier("transcript")
             .defaultScrollAnchor(.bottom)
             .scrollPosition($scrollPosition)
             .scrollDisabled(tableLock.isLocked)
@@ -223,17 +227,13 @@ struct ChatView: View {
                 }
                 if nearBottom != follow { nearBottom = follow }
             }
-            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
-                readingSpot.offset = offset
+            .onScrollTargetVisibilityChange(idType: UUID.self, threshold: Self.partlyVisible) { visible in
+                readingSpot.see(visible, in: blocks.map(\.id))
             }
             .onAppear {
                 let resume = readingSpot.resume(in: chat.sessionID)
                 nearBottom = resume == nil
                 returnToReading(at: resume)
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(80))
-                    returnToReading(at: resume)
-                }
             }
             .onDisappear {
                 readingSpot.leave(chat.sessionID, atEnd: nearBottom)
@@ -251,9 +251,9 @@ struct ChatView: View {
             && chat.pending == nil && chat.pendingQuestion == nil
     }
 
-    private func returnToReading(at offset: CGFloat?) {
-        if let offset {
-            scrollPosition.scrollTo(y: offset)
+    private func returnToReading(at message: UUID?) {
+        if let message {
+            scrollPosition.scrollTo(id: message, anchor: .top)
         } else {
             jumpToEnd()
         }
@@ -264,23 +264,9 @@ struct ChatView: View {
     }
 
     private func scrollToEnd() {
-        guard nearBottom else { return }
-        withAnimation(.easeOut(duration: 0.15)) {
+        endFollower.follow {
+            guard nearBottom else { return }
             scrollPosition.scrollTo(edge: .bottom)
         }
-    }
-}
-
-private final class ReadingSpot {
-    var offset: CGFloat = 0
-    private var left: (session: UUID, offset: CGFloat)?
-
-    func leave(_ session: UUID, atEnd: Bool) {
-        left = atEnd ? nil : (session, offset)
-    }
-
-    func resume(in session: UUID) -> CGFloat? {
-        defer { left = nil }
-        return left?.session == session ? left?.offset : nil
     }
 }
