@@ -42,6 +42,7 @@ struct RowPageView: View {
             }
         }
         .navigationTitle(ns.title(of: row))
+        .followsPullRequests(of: branch)
         .confirmation(
             "Apagar \"\(pendingDelete?.title ?? "")\"?",
             isPresented: Binding(

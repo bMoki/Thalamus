@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 struct PullRequestFollowing: ViewModifier {
@@ -20,15 +19,11 @@ struct PullRequestFollowing: ViewModifier {
             .onChange(of: busy) {
                 if !busy, let branch { monitor.turnEnded(branch) }
             }
-            .onReceive(NotificationCenter.default.publisher(
-                for: NSApplication.didBecomeActiveNotification)) { _ in
-                Task { @MainActor in monitor.appBecameActive() }
-            }
     }
 }
 
 extension View {
-    func followsPullRequests(of branch: String?, busy: Bool) -> some View {
+    func followsPullRequests(of branch: String?, busy: Bool = false) -> some View {
         modifier(PullRequestFollowing(branch: branch, busy: busy))
     }
 }

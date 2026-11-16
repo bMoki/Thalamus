@@ -170,6 +170,7 @@ struct SidebarView: View {
     private func open(_ folder: SidebarGroups.Folder) {
         let row = SidebarRow(folder)
         let sessions = workspace.groups(in: ns).folder(row)?.sessions ?? []
+        if let branch = row.branch { monitor.rowOpened(branch) }
         Task { await workspace.open(row, among: sessions, reselected: selectedRow == row) }
     }
 

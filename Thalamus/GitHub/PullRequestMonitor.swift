@@ -22,6 +22,8 @@ final class PullRequestMonitor {
     static let visibleInterval: TimeInterval = 20
     static let backgroundInterval: TimeInterval = 120
     static let followUpDelay: TimeInterval = 10
+    static let recheckWindow: TimeInterval = 60
+    static let queueStep: TimeInterval = 0.001
     static let recentWindow: TimeInterval = 7 * 24 * 60 * 60
     static let ceiling: TimeInterval = 30 * 60
 
@@ -117,7 +119,12 @@ final class PullRequestMonitor {
 
     func appear(_ branch: String) {
         visible[branch, default: 0] += 1
-        scheduleNow(branch)
+        rowOpened(branch)
+    }
+
+    func rowOpened(_ branch: String) {
+        let moment = now()
+        for target in targets(of: branch) { checkUnlessFresh(target, from: moment) }
     }
 
     func disappear(_ branch: String) {
@@ -140,12 +147,18 @@ final class PullRequestMonitor {
         }
     }
 
-    func appBecameActive() {
+    func appBecameActive(order: [String]) {
         if !isReady {
             cli = .unknown
             refreshPending = true
         }
-        for id in visible.keys { scheduleNow(id) }
+        var seen: Set<String> = []
+        let ranked = (order + visible.keys.sorted() + items.map(\.target.branch)).filter { seen.insert($0).inserted }
+        let followed = ranked.flatMap(targets(of:)).filter { visible[$0.branch] != nil || interval(for: $0) != nil }
+        let moment = now()
+        for (place, target) in followed.enumerated() {
+            checkUnlessFresh(target, from: queued(place, of: followed.count, before: moment))
+        }
     }
 
     func noteActivity(_ dates: [String: Date]) {
@@ -160,7 +173,7 @@ final class PullRequestMonitor {
         await fetcher.configure(path: path)
         hiddenSetup = []
         await checkGh()
-        for id in visible.keys { scheduleNow(id) }
+        for id in visible.keys { checkNow(id) }
     }
 
     func checkGh() async {
@@ -246,7 +259,23 @@ final class PullRequestMonitor {
         items.map(\.target).filter { $0.branch == branch }
     }
 
-    private func scheduleNow(_ branch: String) {
+    private func queued(_ place: Int, of count: Int, before moment: Date) -> Date {
+        moment.addingTimeInterval(Double(place - count) * Self.queueStep)
+    }
+
+    private func checkUnlessFresh(_ target: Target, from start: Date) {
+        guard penalty == 1 else { return }
+        guard let last = checked[target], now().timeIntervalSince(last) < Self.recheckWindow else {
+            due[target] = start
+            return
+        }
+        if let next = interval(for: target).map({ last.addingTimeInterval(max($0, Self.recheckWindow)) }),
+           next < due[target] ?? .distantFuture {
+            due[target] = next
+        }
+    }
+
+    private func checkNow(_ branch: String) {
         let moment = now()
         for target in targets(of: branch) { due[target] = moment }
     }
