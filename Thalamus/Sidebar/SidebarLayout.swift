@@ -11,7 +11,7 @@ nonisolated enum SidebarOrder: String, Codable, CaseIterable, Sendable {
     }
 }
 
-nonisolated enum SidebarGroup: String, Codable, Sendable {
+nonisolated enum SidebarGroup: String, Codable, Sendable, CaseIterable {
     case favorites, branches, baseRepos, otherFolders
 
     var title: String {

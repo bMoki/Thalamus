@@ -65,7 +65,7 @@ struct BranchHeader: View {
         .padding(.leading, Theme.space(.s10))
         .padding(.trailing, Theme.space(.s6))
         .padding(.vertical, Theme.space(.s6))
-        .sidebarHeaderRow(hovering: $hovering, isSelected: isSelected, open: open)
+        .sidebarHeaderRow(hovering: $hovering, isFocused: isSelected, open: open)
         .thalamusContextMenu(menu)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(branch?.nickname.map { "\($0), \(name)" } ?? name)
