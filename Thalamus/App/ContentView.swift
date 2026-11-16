@@ -5,6 +5,7 @@ struct ContentView: View {
     @State private var workspace: WorkspaceModel
     @Environment(NsWorkspace.self) private var ns
     @Environment(PanelTerminals.self) private var terminals
+    @Environment(PullRequestMonitor.self) private var monitor
 
     @State private var gitChanges = GitChangesModel()
     @State private var files = FileTree()
@@ -46,6 +47,9 @@ struct ContentView: View {
         .frame(minWidth: 860, minHeight: 560)
         .task { await workspace.refresh() }
         .onChange(of: workspace.summaries) { closeVanishedPage() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            monitor.appBecameActive(order: [centerBranch].compactMap(\.self) + workspace.sidebarBranches(in: ns))
+        }
         .onChange(of: ns.status) {
             closeVanishedPage()
             closeRemovedBranches()
@@ -60,6 +64,10 @@ struct ContentView: View {
             terminals.close(row)
             editors.close(row)
         }
+    }
+
+    private var centerBranch: String? {
+        workspace.page?.branch ?? workspace.active.flatMap { ns.branchName(of: $0.workingDirectory) }
     }
 
     private func closeVanishedPage() {

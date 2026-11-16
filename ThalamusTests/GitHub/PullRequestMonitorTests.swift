@@ -18,6 +18,12 @@ private struct Rig {
 
     func repo(_ index: Int) -> BranchRepo { monitor.repos(of: branches[index])[0] }
 
+    func checkWithAnOpenPullRequest() async {
+        ledger.setPullRequest(makePullRequest(), for: repo(0).id)
+        await fetcher.answer(.found(makePullRequest()))
+        await monitor.tick()
+    }
+
     func ticked(after seconds: TimeInterval) async -> Int {
         clock.advance(seconds)
         await monitor.tick()
@@ -260,7 +266,7 @@ private func makeRig(branches: Int = 1, host: String = "github.com", limit: Int 
     #expect(await rig.fetcher.calls.isEmpty)
 
     await rig.fetcher.set(state: .ready(path: "/fake/gh", version: "1.0"))
-    rig.monitor.appBecameActive()
+    rig.monitor.appBecameActive(order: rig.branches)
     await rig.monitor.tick()
     #expect(rig.monitor.setupNeeded(for: rig.branches[0]) == nil)
     #expect(await rig.fetcher.calls.count == 1)
@@ -310,7 +316,7 @@ private func makeRig(branches: Int = 1, host: String = "github.com", limit: Int 
     await rig.monitor.tick()
     #expect(await rig.fetcher.refreshes == 0)
 
-    rig.monitor.appBecameActive()
+    rig.monitor.appBecameActive(order: rig.branches)
     await rig.monitor.tick()
 
     #expect(await rig.fetcher.refreshes == 1)
@@ -323,7 +329,7 @@ private func makeRig(branches: Int = 1, host: String = "github.com", limit: Int 
     rig.monitor.appear(rig.branches[0])
     await rig.monitor.tick()
 
-    rig.monitor.appBecameActive()
+    rig.monitor.appBecameActive(order: rig.branches)
     await rig.monitor.tick()
 
     #expect(await rig.fetcher.refreshes == 0)
@@ -440,4 +446,87 @@ private func makeRig(branches: Int = 1, host: String = "github.com", limit: Int 
     await checking.value
 
     #expect(rig.monitor.pullRequest(for: rig.repo(0)) == nil)
+}
+
+@MainActor
+@Test func comingBackChecksEveryFollowedBranchStartingWithTheOpenOneInSidebarOrder() async {
+    let rig = makeRig(branches: 4, limit: 1)
+    rig.monitor.noteActivity(Dictionary(uniqueKeysWithValues: rig.branches.prefix(3).map { ($0, rig.clock.now) }))
+    rig.monitor.appear(rig.branches[2])
+    for _ in 1...3 { await rig.monitor.tick() }
+    #expect(await rig.fetcher.calls.count == 3)
+
+    rig.clock.advance(61)
+    rig.monitor.appBecameActive(order: [rig.branches[2], rig.branches[1], rig.branches[3], rig.branches[0]])
+    for _ in 1...4 { await rig.monitor.tick() }
+
+    #expect(await rig.fetcher.calls.dropFirst(3) == ["/wt/NS-2/api", "/wt/NS-1/api", "/wt/NS-0/api"])
+}
+
+@MainActor
+@Test func comingBackSkipsABranchCheckedThirtySecondsAgo() async {
+    let rig = makeRig()
+    rig.monitor.noteActivity([rig.branches[0]: rig.clock.now])
+    await rig.monitor.tick()
+
+    rig.clock.advance(30)
+    rig.monitor.appBecameActive(order: rig.branches)
+    #expect(await rig.ticked(after: 0) == 1)
+
+    rig.clock.advance(31)
+    rig.monitor.appBecameActive(order: rig.branches)
+    #expect(await rig.ticked(after: 0) == 2)
+}
+
+@MainActor
+@Test func openingARowChecksItsBranchUnlessCheckedInTheLastMinute() async {
+    let rig = makeRig()
+    await rig.checkWithAnOpenPullRequest()
+
+    rig.clock.advance(30)
+    rig.monitor.rowOpened(rig.branches[0])
+    #expect(await rig.ticked(after: 0) == 1)
+
+    rig.clock.advance(31)
+    rig.monitor.rowOpened(rig.branches[0])
+    #expect(await rig.ticked(after: 0) == 2)
+}
+
+@MainActor
+@Test func aBranchShownWithinAMinuteOfItsCheckWaitsForTheMinuteThenEveryTwentySeconds() async {
+    let rig = makeRig()
+    await rig.checkWithAnOpenPullRequest()
+
+    rig.clock.advance(30)
+    rig.monitor.appear(rig.branches[0])
+    #expect(await rig.ticked(after: 29) == 1)
+
+    #expect(await rig.ticked(after: 1) == 2)
+    #expect(await rig.ticked(after: 20) == 3)
+}
+
+@MainActor
+@Test func comingBackRechecksTheOpenBranchEvenWithAMergedPullRequest() async {
+    let rig = makeRig()
+    await rig.fetcher.answer(.found(makePullRequest(state: .merged)))
+    rig.monitor.appear(rig.branches[0])
+    await rig.monitor.tick()
+
+    rig.clock.advance(61)
+    rig.monitor.appBecameActive(order: rig.branches)
+    #expect(await rig.ticked(after: 0) == 2)
+}
+
+@MainActor
+@Test func whileGitHubLimitsRequestsComingBackWaitsForTheBackOff() async {
+    let rig = makeRig(branches: 2)
+    rig.monitor.noteActivity(Dictionary(uniqueKeysWithValues: rig.branches.map { ($0, rig.clock.now) }))
+    await rig.fetcher.answer(.failed(rateLimited: true))
+    await rig.monitor.tick()
+    #expect(await rig.fetcher.calls.count == 2)
+
+    rig.clock.advance(61)
+    rig.monitor.appBecameActive(order: rig.branches)
+    rig.monitor.rowOpened(rig.branches[0])
+    #expect(await rig.ticked(after: 0) == 2)
 }

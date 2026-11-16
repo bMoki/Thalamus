@@ -42,6 +42,10 @@ extension WorkspaceModel {
         SidebarGroups(sessions: summaries, status: ns.status, search: search, layout: layout, place: ns.place(of:))
     }
 
+    func sidebarBranches(in ns: NsWorkspace) -> [String] {
+        groups(in: ns).folders.compactMap { SidebarRow($0).branch }
+    }
+
     func closePageIfGone(from groups: SidebarGroups, statusKnown: Bool) {
         guard let page, page != .archived else { return }
         if case .folder = page {} else if !statusKnown { return }
