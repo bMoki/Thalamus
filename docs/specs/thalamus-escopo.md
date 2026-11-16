@@ -46,6 +46,7 @@ Escrito em linguagem de negócio. As regras são numeradas e estáveis: uma regr
 - **T-1.33** Encolher e expandir não desloca nada no título: nome do grupo, ações, contagem e indicador ficam no mesmo lugar nos dois estados. O título fica sempre numa linha; o nome do grupo é cortado com "…" quando a sidebar é estreita, e as ações, a contagem e o indicador nunca encolhem.
 - **T-1.34** Encolher é uma preferência do Thalamus, por grupo, e dura entre aberturas do Thalamus.
 - **T-1.35** Enquanto há texto na busca, todos os grupos mostram suas linhas encontradas, encolhidos ou não, sem mudar o que ficou guardado: limpar a busca devolve cada grupo ao estado anterior.
+- **T-1.36** A linha em foco (a da Sessão aberta no centro ou a da Página da linha aberta) se distingue do hover em todo Tema, de relance: no Padrão, a linha em foco usa o fundo de acento e o hover um fundo mais leve; no TTY, como em T-16.15. O hover sai da linha assim que o mouse sai dela, inclusive quando a lista muda embaixo do mouse, quando um menu fecha e quando a janela perde o foco. Vale para todas as linhas da sidebar: Branch de workspace, Repo base, Outras pastas, Arquivadas e Sessão.
 
 ## 2. Nova Branch de workspace
 
@@ -76,6 +77,7 @@ Escrito em linguagem de negócio. As regras são numeradas e estáveis: uma regr
 - **T-3.11** Cada linha escolhe um ícone entre as sugestões daquele Serviço, todos os ícones e logos que o Thalamus traz, ou um nome de símbolo do sistema digitado à mão. Um nome que não existe não é aceito; um nome aceito que deixa de existir aparece como ponto. Não há importação de logos próprios.
 - **T-3.12** Dois Serviços podem ter o mesmo ícone, sem aviso.
 - **T-3.13** Os ícones padrão são os logos da tecnologia de cada Serviço: Quarkus no backend, Vite no frontend, Tailwind no manager, Bun no report-server; o banco tem um cilindro. "Restaurar padrões" volta o Estilo a Pontos e os ícones a esses.
+- **T-3.15** O frontend e o manager têm a ação **Abrir no navegador**, junto das ações do Serviço, que abre o endereço Portless do Serviço no navegador padrão do macOS. O endereço vem do `ns`, nunca é montado pelo Thalamus. A ação só fica habilitada com o Serviço Rodando; nos outros Estados, fica desabilitada com a dica "O Serviço não está rodando". Backend, report-server e banco não têm a ação.
 
 ## 4. Banco: Snapshot e Restaurar
 
@@ -156,6 +158,7 @@ Ficam: chat e composer, permissões, slash, menções, painel de contexto, alter
 - **T-13.5** Com uma resposta sugerida à vista, Tab a coloca no composer para editar, e → continua aceitando e enviando de uma vez. Ao percorrer o histórico, a resposta sugerida some e volta quando se retorna ao rascunho vazio.
 - **T-13.6** Sem resposta sugerida e sem lista de `/` ou `@` aberta, Tab continua tirando o foco do composer.
 - **T-13.7** Uma Pergunta do agente aparece acima do composer e ocupa no máximo 60% da altura do chat, para que sempre sobre um pedaço da conversa à vista. O que não cabe rola dentro dela, com um esmaecido na borda de baixo enquanto houver conteúdo escondido. Dispensar e Responder ficam sempre à vista, qualquer que seja o número de perguntas e opções. Com mais de uma pergunta, o rodapé mostra quantas já foram respondidas ("2 de 4 respondidas").
+- **T-13.8** Com conversa, a área do chat sempre mostra mensagens: ao abrir uma Sessão (inclusive longa), ao voltar ao ponto de leitura e durante o streaming. O ponto de leitura de uma Sessão é a mensagem que estava à vista, não uma posição na rolagem.
 
 ## 14. PRs
 
@@ -163,6 +166,7 @@ Ficam: chat e composer, permissões, slash, menções, painel de contexto, alter
 - **T-14.2** A dispensa é uma só. Um PR dispensado some da barra de PR da Sessão e da linha da Branch de workspace na sidebar. Na seção PRs continua listado, apagado e marcado como dispensado, e a mesma ação desfaz.
 - **T-14.3** O PR dispensado volta sozinho quando muda de estado: review, checks, conflito, merge ou fechamento. Um PR mergeado não muda mais e, dispensado, não volta; um PR novo no mesmo Repo aparece normalmente.
 - **T-14.5** Dispensar é uma preferência do Thalamus e não age sobre o PR no GitHub.
+- **T-14.6** Voltar ao Thalamus confere na hora os PRs de todas as Branches de workspace acompanhadas, começando pela aberta no centro e seguindo a ordem da sidebar. Clicar numa linha confere na hora os PRs daquela branch, e a Página da linha aberta conta como branch à vista, como a Sessão aberta. Uma branch conferida há menos de 60 s não é conferida de novo por esses gatilhos.
 
 ## 15. Dependências dos Repos
 
@@ -196,3 +200,4 @@ Decisões: [ADR-0005](../adr/0005-estilo-e-paleta-separados.md) e [ADR-0006](../
 - **T-16.12** O conteúdo dos Terminais livres e Consoles não muda com o Tema. As 16 cores do Terminal vêm da Paleta, e no TTY o Terminal usa a fonte do TTY.
 - **T-16.13** O ícone do Dock acompanha o Tema: o desenho vem do Estilo (o B2 no Padrão, a arte A6 no TTY) e as cores da Paleta. O ícone do Finder continua o do app, Padrão com Índigo. No Thalamus Dev, o ícone do Dock mantém a faixa "DEV" em todo Tema.
 - **T-16.14** A Paleta não acompanha a aparência clara ou escura do macOS.
+- **T-16.15** No TTY, a linha em foco da sidebar começa com `▌` na cor do acento, sobre o fundo de seleção; o hover mostra só o fundo de seleção, mais leve.
