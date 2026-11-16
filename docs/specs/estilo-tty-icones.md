@@ -33,7 +33,7 @@ Fora desta tabela ficam os caracteres que já são texto no TTY: `›`, `‹`, `
 | `arrow.up` | Enviar mensagem | `cod-arrow_up` | `U+EAA1` |
 | `arrow.right` | Enviar, no campo do composer | `cod-arrow_right` | `U+EA9C` |
 | `arrow.turn.down.right` | Resposta encadeada no transcript | `md-subdirectory_arrow_right` | `U+F060D` |
-| `arrow.up.right` | Abrir no navegador (checks do PR) | `cod-link_external` | `U+EB14` |
+| `arrow.up.right` | Abrir no navegador (checks do PR, frontend e manager no painel de Serviços) | `cod-link_external` | `U+EB14` |
 | `arrow.up.forward.app` | Abrir no app de banco | `md-open_in_app` | `U+F03CB` |
 | `arrow.up.arrow.down` | Ordem da sidebar | `md-swap_vertical` | `U+F04E2` |
 | `magnifyingglass` | Busca | `cod-search` | `U+EA6D` |

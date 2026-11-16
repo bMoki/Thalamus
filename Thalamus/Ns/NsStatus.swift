@@ -12,6 +12,11 @@ nonisolated struct NsStatus: Decodable, Equatable, Sendable {
         var port: Int?
         var session: String?
         var error: String?
+        var url: URL?
+
+        static let idsWithPage: Set<String> = ["frontend", "manager"]
+
+        var pageURL: URL? { Self.idsWithPage.contains(id) ? url : nil }
     }
 
     nonisolated struct Repo: Decodable, Equatable, Sendable {
@@ -48,7 +53,7 @@ nonisolated struct NsStatus: Decodable, Equatable, Sendable {
         }
 
         private enum CodingKeys: String, CodingKey {
-            case branch, nickname, path, services, ports, sessions, errors, repos, createdAt
+            case branch, nickname, path, services, ports, sessions, errors, urls, repos, createdAt
         }
 
         private enum Key: String, CodingKey, CaseIterable {
@@ -71,16 +76,18 @@ nonisolated struct NsStatus: Decodable, Equatable, Sendable {
             let ports = try? container.nestedContainer(keyedBy: Key.self, forKey: .ports)
             let sessions = try? container.nestedContainer(keyedBy: Key.self, forKey: .sessions)
             let errors = try? container.nestedContainer(keyedBy: Key.self, forKey: .errors)
+            let urls = try? container.nestedContainer(keyedBy: Key.self, forKey: .urls)
             let state = { (key: Key) in try? states?.decodeIfPresent(ServiceState.self, forKey: key) }
             let port = { (key: Key) in try? ports?.decodeIfPresent(Int.self, forKey: key) }
             let session = { (key: Key) in try? sessions?.decodeIfPresent(String.self, forKey: key) }
             let error = { (key: Key) in try? errors?.decodeIfPresent(String.self, forKey: key) }
+            let url = { (key: Key) in (try? urls?.decodeIfPresent(String.self, forKey: key)).flatMap(URL.init(string:)) }
             database = state(.db) ?? .parado
             databasePort = port(.db)
             services = Key.allCases.dropFirst().compactMap { key in
                 state(key).map {
                     Service(id: key.id, state: $0, port: port(key),
-                            session: session(key), error: error(key))
+                            session: session(key), error: error(key), url: url(key))
                 }
             }
         }

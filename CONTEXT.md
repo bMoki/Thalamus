@@ -85,6 +85,10 @@ Todas as cores do Thalamus, sem nada de forma: superfícies, textos, acento, as 
 O que o centro mostra para uma linha da sidebar (uma Branch de workspace, um Repo base ou uma pasta de Outras pastas): as Sessões dela e a ação de começar outra, junto com o que é da linha e não de uma Sessão (abas de arquivo, Consoles, Terminais livres). Clicar na linha abre a Sessão aberta por último ali; clicar de novo, a página.
 _Evitar:_ "pasta expandida", "árvore de Sessões".
 
+### Linha em foco
+A linha da sidebar em que se está trabalhando: a da Sessão aberta no centro, ou a da Página da linha aberta. Há no máximo uma. Passar o mouse sobre uma linha não a põe em foco.
+_Evitar:_ "linha selecionada" (selecionar sugere uma escolha que se pode fazer sem abrir nada), "linha ativa".
+
 ### PR dispensado
 Um PR que quem trabalha na Branch de workspace tirou da vista até ele mudar de estado (review, checks, conflito, merge ou fechamento). Ao mudar, volta sozinho. Um PR mergeado não muda mais, então, dispensado, não volta. Dispensar é uma preferência do Thalamus e não age sobre o PR no GitHub.
 _Evitar:_ "PR arquivado", "PR oculto".
