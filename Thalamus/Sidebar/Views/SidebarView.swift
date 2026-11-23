@@ -6,6 +6,7 @@ struct SidebarView: View {
     @Bindable var workspace: WorkspaceModel
     @Environment(PullRequestMonitor.self) private var monitor
     @Environment(NsWorkspace.self) private var ns
+    @Environment(SidebarFocusWatch.self) private var focusWatch: SidebarFocusWatch?
     var lightsInset: CGFloat = 0
     var collapse: () -> Void = {}
 
@@ -107,6 +108,7 @@ struct SidebarView: View {
                     ArchivedRow(count: groups.archived.count, isSelected: selectedRow == .archived) {
                         workspace.showPage(.archived)
                     }
+                    .modifier(SidebarFocusReport(row: "archived", isFocused: selectedRow == .archived))
                     .padding(.top, Theme.space(.s14))
                 }
 
@@ -123,12 +125,16 @@ struct SidebarView: View {
         .accessibilityIdentifier("Sidebar")
         .environment(hover)
         .onChange(of: shownRows(in: groups)) { hover.clear() }
+        .onChange(of: shownFolderIDs(in: groups), initial: true) { focusWatch?.rowsShown($1) }
+        .onChange(of: selectedRow, initial: true) { focusWatch?.focusMoved(to: $1) }
+        .onChange(of: workspace.layout, initial: true) { focusWatch?.layoutChanged($1) }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)
             .merge(with: NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification))) { _ in
             hover.clear()
         }
         .onChange(of: ns.status, initial: true) {
             if let status = ns.status { workspace.layout = workspace.layout.pruned(by: status) }
+            focusWatch?.statusChanged(ns.status)
         }
         .onChange(of: workspace.summaries, initial: true) {
             monitor.noteActivity(Dictionary(workspace.summaries.compactMap { summary in
@@ -148,7 +154,9 @@ struct SidebarView: View {
                                 isEnabled: !searching, toggle: { workspace.layout.toggleCollapsed(group) },
                                 actions: actions)
             .padding(.top, top)
-        ForEach(shown) { folder($0).transition(.opacity) }
+        ForEach(shown.map { (key: group.rawValue + "|" + $0.id, folder: $0) }, id: \.key) {
+            folder($0.folder).transition(.opacity)
+        }
     }
 
     private func shownFolders(of group: SidebarGroup, in groups: SidebarGroups) -> [SidebarGroups.Folder] {
@@ -158,6 +166,12 @@ struct SidebarView: View {
     private func shownRows(in groups: SidebarGroups) -> [SidebarRow] {
         SidebarGroup.allCases.flatMap { shownFolders(of: $0, in: groups) }.map(SidebarRow.init)
             + (groups.archived.isEmpty ? [] : [.archived])
+    }
+
+    private func shownFolderIDs(in groups: SidebarGroups) -> [String] {
+        SidebarGroup.allCases.flatMap { group in
+            shownFolders(of: group, in: groups).map { group.rawValue + "|" + $0.id }
+        }
     }
 
     private var selectedRow: SidebarRow? {
@@ -222,6 +236,7 @@ struct SidebarView: View {
                     state: nil, anchor: anchor,
                     lines: isBranch ? PaneTip.Line.pullRequests(monitor.bars(for: folder.name)) : [])
         }, update: { scheduleTip($0) })
+        .modifier(SidebarFocusReport(row: folder.id, isFocused: isSelected))
     }
 
     private func tipDetail(for folder: SidebarGroups.Folder, isBranch: Bool) -> String {
