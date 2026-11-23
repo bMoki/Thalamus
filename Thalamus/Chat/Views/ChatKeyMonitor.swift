@@ -31,10 +31,13 @@ struct ZoomedImage: Identifiable, Equatable {
                 case 126:
                     slash.selection = max(selected - 1, 0)
                     return nil
-                case 36, 48:
+                case 36:
                     if slash.run(slashMatches[selected], in: chat) {
                         stickToBottom()
                     }
+                    return nil
+                case 48 where !event.modifierFlags.contains(.shift):
+                    slash.complete(slashMatches[selected], in: chat)
                     return nil
                 case 53:
                     if slash.group != nil {

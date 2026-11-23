@@ -67,9 +67,7 @@ struct ChatView: View {
         .onChange(of: chat.prompt) {
             mentions.selection = 0
             mentions.dismissed = chat.isBrowsingHistory
-            slash.selection = 0
-            slash.dismissed = chat.isBrowsingHistory
-            if SlashCatalog.query(in: chat.prompt) == nil { slash.group = nil }
+            slash.promptChanged(to: chat.prompt, browsingHistory: chat.isBrowsingHistory)
         }
         .onChange(of: "\(chat.sessionID)|\(isEditing)", initial: true) {
             if isEditing {
