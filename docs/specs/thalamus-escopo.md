@@ -159,6 +159,7 @@ Ficam: chat e composer, permissões, slash, menções, painel de contexto, alter
 - **T-13.6** Sem resposta sugerida e sem lista de `/` ou `@` aberta, Tab continua tirando o foco do composer.
 - **T-13.7** Uma Pergunta do agente aparece acima do composer e ocupa no máximo 60% da altura do chat, para que sempre sobre um pedaço da conversa à vista. O que não cabe rola dentro dela, com um esmaecido na borda de baixo enquanto houver conteúdo escondido. Dispensar e Responder ficam sempre à vista, qualquer que seja o número de perguntas e opções. Com mais de uma pergunta, o rodapé mostra quantas já foram respondidas ("2 de 4 respondidas").
 - **T-13.8** Com conversa, a área do chat sempre mostra mensagens: ao abrir uma Sessão (inclusive longa), ao voltar ao ponto de leitura e durante o streaming. O ponto de leitura de uma Sessão é a mensagem que estava à vista, não uma posição na rolagem.
+- **T-13.9** Na lista de `/`, Tab completa o comando ou a skill escolhida no composer (`/nome `), com o cursor no fim para digitar argumentos, sem executar; Return continua executando na hora. Num grupo da lista, Tab entra nele, como o Return. Depois de completar, a lista fecha até o composer voltar a ser só `/`.
 
 ## 14. PRs
 

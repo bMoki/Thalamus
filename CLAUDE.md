@@ -8,7 +8,9 @@ A IDE do `ns`, um app macOS em SwiftUI. Leia antes de mexer:
 - [CONTEXT.md](CONTEXT.md) e [docs/adr/](docs/adr/): a linguagem do domínio e
   as decisões.
 - [docs/pendencias.md](docs/pendencias.md): o que ficou aberto.
-- Tickets: `../.scratch/thalamus-ide/issues/`.
+- Tickets: as issues do `bMoki/Thalamus` (`gh issue list -R bMoki/Thalamus`).
+  Os tickets concluídos até o 65 ficam em `../.scratch/thalamus-ide/issues/`,
+  como histórico; nenhum ticket novo nasce ali.
 
 ## Thalamus real e Thalamus Dev
 
@@ -38,7 +40,13 @@ A IDE do `ns`, um app macOS em SwiftUI. Leia antes de mexer:
      `docs/quality.md`).
   3. Em mudança de tela, faça a checagem visual com `Scripts/screenshot`.
   4. Faça a triagem do `docs/pendencias.md`.
-  5. Marque o ticket como concluído.
+  5. Marque os checklists da issue e ponha `Closes #N` na descrição do PR,
+     para o merge fechar a issue.
+
+  Uma issue nova segue o formato dos tickets: o que construir, "Blocked by"
+  com `#N`, critérios em checklist, "Before marking done", "Fora do escopo" e
+  "Notas". O título é só o nome, sem número, e a label é `bug` ou
+  `enhancement`.
 
   Depois disso, pare e espere a revisão do usuário antes do próximo.
 - Commits em inglês, no formato Conventional Commits, sem `Co-Authored-By`
