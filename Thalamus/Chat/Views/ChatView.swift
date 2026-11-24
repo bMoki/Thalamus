@@ -13,6 +13,7 @@ struct ChatView: View {
     @State private var scrollPosition = ScrollPosition()
     @State private var readingSpot = ReadingSpot()
     @State private var endFollower = EndFollower()
+    @State private var blankEnd = BlankEndWatch()
     @State private var tableLock = TableScrollLock()
     @State private var transcriptHeight: CGFloat = .infinity
 
@@ -31,8 +32,13 @@ struct ChatView: View {
         static func bucket(_ value: CGFloat) -> CGFloat { (value / 8).rounded() * 8 }
     }
 
+    private enum LiveRow {
+        case compacting, streaming, typing
+    }
+
     private static let questionShare: CGFloat = 0.6
     private static let partlyVisible = 0.01
+    private static let alwaysDrawn = 30
 
     var body: some View {
         InspectorSplit(isShown: pane != .closed) {
@@ -81,6 +87,7 @@ struct ChatView: View {
         }
         .onChange(of: chat.isBusy) {
             if !chat.isBusy {
+                blankEnd.happened(.turnEnded)
                 keys.disarmEsc()
                 if shownPane == .changes {
                     let gitChanges = self.gitChanges
@@ -133,55 +140,25 @@ struct ChatView: View {
             Self.isUserBlock($0) || Self.harness(of: $0) != chat.harness
         } ?? true
         let lastID = blocks.last?.id
-        return ScrollView {
-                LazyVStack(alignment: .leading, spacing: Theme.space(.s20)) {
+        let drawnFrom = max(blocks.count - Self.alwaysDrawn, 0)
+        return ScrollViewReader { reader in
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.space(.s20)) {
                     if blocks.isEmpty, !chat.isBusy, chat.streaming.isEmpty {
                         SessionWelcome(chat: chat)
                     }
-                    ForEach(blocks) { block in
-                        switch block {
-                        case .line(let line) where line.role == .user || line.role == .compaction:
-                            TranscriptRow(line: line, expanded: $expanded,
-                                          onZoom: zoom).id(line.id)
-                        case .line(let line):
-                            AssistantTurn(harness: line.harness ?? chat.harness,
-                                          showsHeader: starts.contains(line.id),
-                                          moment: line.timestamp) {
-                                TranscriptRow(line: line, expanded: $expanded, onZoom: zoom)
-                            }
-                            .id(line.id)
-                        case .collapsed(let id, let lines):
-                            AssistantTurn(harness: Self.harness(of: block) ?? chat.harness,
-                                          showsHeader: starts.contains(id),
-                                          moment: lines.first?.timestamp) {
-                                ToolSteps(id: id, lines: lines, expanded: $expanded,
-                                          isLive: id == lastID && chat.isBusy
-                                              && chat.streaming.isEmpty,
-                                          onZoom: zoom)
-                            }
-                            .id(id)
+                    if drawnFrom > 0 {
+                        LazyVStack(alignment: .leading, spacing: Theme.space(.s20)) {
+                            ForEach(blocks[..<drawnFrom]) { row($0, starts: starts, lastID: lastID) }
                         }
+                        .scrollTargetLayout()
                     }
-                    if let since = chat.compactingSince {
-                        CompactionProgressCard(since: since).id("compacting")
-                    } else if !chat.streaming.isEmpty {
-                        AssistantTurn(harness: chat.harness, showsHeader: tailStartsTurn,
-                                      moment: nil) {
-                            MessageBubble(text: chat.streaming, moment: nil,
-                                          style: .assistant, markdown: true)
-                        }
-                        .id("streaming")
-                    } else if chat.isBusy, chat.pending == nil,
-                              chat.pendingQuestion == nil {
-                        AssistantTurn(harness: chat.harness, showsHeader: tailStartsTurn,
-                                      moment: nil) {
-                            ThinkingRow(chat: chat)
-                                .padding(.vertical, Theme.space(.s4))
-                        }
-                        .id("typing")
+                    VStack(alignment: .leading, spacing: Theme.space(.s20)) {
+                        ForEach(blocks[drawnFrom...]) { row($0, starts: starts, lastID: lastID) }
+                        tail(startsTurn: tailStartsTurn)
                     }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
                 .padding(.horizontal, Theme.space(.s32))
                 .padding(.top, Theme.space(.s28))
                 .padding(.bottom, Theme.space(.s30))
@@ -229,21 +206,80 @@ struct ChatView: View {
             }
             .onScrollTargetVisibilityChange(idType: UUID.self, threshold: Self.partlyVisible) { visible in
                 readingSpot.see(visible, in: blocks.map(\.id))
+                blankEnd.see(rows: visible.count, of: blocks.count, in: chat.sessionID)
+            }
+            .onScrollTargetVisibilityChange(idType: LiveRow.self, threshold: Self.partlyVisible) { visible in
+                blankEnd.see(live: visible.count, in: chat.sessionID)
+            }
+            .onChange(of: nearBottom, initial: true) {
+                blankEnd.see(atEnd: nearBottom, in: chat.sessionID)
             }
             .onAppear {
                 let resume = readingSpot.resume(in: chat.sessionID)
                 nearBottom = resume == nil
-                returnToReading(at: resume)
+                returnToReading(at: resume, with: reader)
             }
             .onDisappear {
                 readingSpot.leave(chat.sessionID, atEnd: nearBottom)
             }
             .onChange(of: chat.lines.count) { scrollToEnd() }
-            .onChange(of: chat.streaming) { scrollToEnd() }
+            .onChange(of: chat.streaming) {
+                blankEnd.happened(.streamingChunk)
+                scrollToEnd()
+            }
             .onChange(of: chat.pendingQuestion?.id) { scrollToEnd() }
             .onChange(of: typingVisible) { scrollToEnd() }
             .onChange(of: chat.compactingSince) { scrollToEnd() }
+        }
         .id(chat.sessionID)
+    }
+
+    @ViewBuilder
+    private func row(_ block: ChatBlock, starts: Set<UUID>, lastID: UUID?) -> some View {
+        switch block {
+        case .line(let line) where line.role == .user || line.role == .compaction:
+            TranscriptRow(line: line, expanded: $expanded,
+                          onZoom: zoom).id(line.id)
+        case .line(let line):
+            AssistantTurn(harness: line.harness ?? chat.harness,
+                          showsHeader: starts.contains(line.id),
+                          moment: line.timestamp) {
+                TranscriptRow(line: line, expanded: $expanded, onZoom: zoom)
+            }
+            .id(line.id)
+        case .collapsed(let id, let lines):
+            AssistantTurn(harness: Self.harness(of: block) ?? chat.harness,
+                          showsHeader: starts.contains(id),
+                          moment: lines.first?.timestamp) {
+                ToolSteps(id: id, lines: lines, expanded: $expanded,
+                          isLive: id == lastID && chat.isBusy
+                              && chat.streaming.isEmpty,
+                          onZoom: zoom)
+            }
+            .id(id)
+        }
+    }
+
+    @ViewBuilder
+    private func tail(startsTurn: Bool) -> some View {
+        if let since = chat.compactingSince {
+            CompactionProgressCard(since: since).id(LiveRow.compacting)
+        } else if !chat.streaming.isEmpty {
+            AssistantTurn(harness: chat.harness, showsHeader: startsTurn,
+                          moment: nil) {
+                MessageBubble(text: chat.streaming, moment: nil,
+                              style: .assistant, markdown: true)
+            }
+            .id(LiveRow.streaming)
+        } else if chat.isBusy, chat.pending == nil,
+                  chat.pendingQuestion == nil {
+            AssistantTurn(harness: chat.harness, showsHeader: startsTurn,
+                          moment: nil) {
+                ThinkingRow(chat: chat)
+                    .padding(.vertical, Theme.space(.s4))
+            }
+            .id(LiveRow.typing)
+        }
     }
 
     private var typingVisible: Bool {
@@ -251,21 +287,24 @@ struct ChatView: View {
             && chat.pending == nil && chat.pendingQuestion == nil
     }
 
-    private func returnToReading(at message: UUID?) {
+    private func returnToReading(at message: UUID?, with reader: ScrollViewProxy) {
         if let message {
-            scrollPosition.scrollTo(id: message, anchor: .top)
+            blankEnd.happened(.returnToReading)
+            Task { reader.scrollTo(message, anchor: .top) }
         } else {
             jumpToEnd()
         }
     }
 
     private func jumpToEnd() {
+        blankEnd.happened(.jumpToEnd)
         scrollPosition.scrollTo(edge: .bottom)
     }
 
     private func scrollToEnd() {
         endFollower.follow {
             guard nearBottom else { return }
+            blankEnd.happened(.followEnd)
             scrollPosition.scrollTo(edge: .bottom)
         }
     }

@@ -149,6 +149,12 @@ a tabela acima.
 
 Os testes unitários rodam dentro do Thalamus Dev e também não tocam no real.
 
+Só no Thalamus Dev, quando o fim da conversa está à vista e nenhuma mensagem
+aparece, o chat registra no log do sistema a Sessão e o que tinha acabado de
+acontecer (pedaço de streaming, fim de turno ou `scrollTo`). Para ver:
+`log stream --predicate 'subsystem == "dev.brenosonda.Thalamus.dev" AND category == "transcript"'`,
+ou o Console com o mesmo filtro.
+
 Na primeira abertura, quando a pasta de dados dele ainda não existe, o
 Thalamus copia a do Den (`~/Library/Application Support/Den`) e as
 preferências `Den.*` do domínio `gabrielpassos.Den`, trocando o prefixo para

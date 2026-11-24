@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 /// Drives the real app through its accessibility tree. Each test gets its own
@@ -370,22 +371,83 @@ final class ConversationUITests: XCTestCase {
 
 extension ConversationUITests {
     private static let longSession = 80
+    private static let firstLongTurn = 40
+
+    @MainActor
+    private func startLongSession(pace: Double? = nil) throws -> XCUIApplication {
+        try claude.on(FakeCLI.userTurn, reply: RecordedSession.claudeLong(1...Self.firstLongTurn))
+        try claude.on(FakeCLI.userTurn, reply: RecordedSession.claudeLong(Self.firstLongTurn + 1...Self.longSession),
+                      pace: pace)
+        try claude.answerTitles(with: "Conversa longa")
+        let app = launch(projectSetup: "echo nota > notas.txt")
+        let composer = openComposer(in: app)
+        pasteImage(in: app)
+        composer.typeText("Escreva bastante.\n")
+        require(text(containing: RecordedSession.longMessageTitle(Self.firstLongTurn), in: app), in: app)
+        composer.click()
+        pasteImage(in: app)
+        composer.typeText("Mais texto.\n")
+        let images = try FileManager.default.contentsOfDirectory(atPath: root.appending(path: "attachments").path)
+        XCTAssertEqual(images.filter { $0.hasSuffix(".png") }.count, 2)
+        return app
+    }
 
     @MainActor
     private func launchWithLongSession() throws -> XCUIApplication {
-        try claude.on(FakeCLI.userTurn, reply: RecordedSession.claudeLong(Self.longSession))
-        try claude.answerTitles(with: "Conversa longa")
-        let app = launch(projectSetup: "echo nota > notas.txt")
-        startConversation("Escreva bastante.", in: app)
+        let app = try startLongSession()
         require(text(containing: RecordedSession.longMessageTitle(Self.longSession), in: app), in: app)
+        require(app.buttons["Enviar mensagem"], in: app)
         return app
+    }
+
+    @MainActor
+    private func pasteImage(in app: XCUIApplication) {
+        let image = NSImage(size: NSSize(width: 480, height: 320), flipped: false) { rect in
+            NSColor.systemTeal.setFill()
+            rect.fill()
+            return true
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([image])
+        app.typeKey("v", modifierFlags: .command)
     }
 
     @MainActor
     func testALongAnswerStillShowsMessagesAfterStreaming() throws {
         let app = try launchWithLongSession()
 
-        XCTAssertEqual(shownMessages(in: app).last, Self.longSession)
+        XCTAssertEqual(messagesInView(in: app).shown.last, Self.longSession)
+    }
+
+    @MainActor
+    func testTheLastMessageStaysInViewDuringAndAfterALongStreaming() throws {
+        let app = try startLongSession(pace: 0.05)
+        let streaming = text(containing: RecordedSession.longMessageTitle(Self.firstLongTurn + 2), in: app)
+        require(streaming, in: app)
+
+        for moment in 1...3 {
+            let shown = messagesInView(in: app).shown
+            XCTAssertGreaterThan(shown.max() ?? 0, Self.firstLongTurn, "while streaming, sample \(moment): \(shown)")
+        }
+        require(text(containing: RecordedSession.longMessageTitle(Self.longSession), in: app), in: app)
+        let (shown, highestDrawn) = messagesInView(in: app)
+        XCTAssertEqual(highestDrawn, Self.longSession)
+        XCTAssertEqual(shown.max(), Self.longSession, "after streaming: \(shown)")
+    }
+
+    @MainActor
+    func testMessagesMovingToTheLazyPartKeepTheMessageBeingRead() throws {
+        let app = try startLongSession(pace: 0.05)
+        require(text(containing: RecordedSession.longMessageTitle(Self.firstLongTurn + 2), in: app), in: app)
+        let transcript = app.scrollViews["transcript"]
+        for _ in 1...4 { transcript.scroll(byDeltaX: 0, deltaY: 600) }
+        let reading = try XCTUnwrap(messagesInView(in: app).shown.first, "blank after scrolling up")
+        XCTAssertLessThan(reading, Self.firstLongTurn, "not reading the first answer")
+
+        require(text(containing: RecordedSession.longMessageTitle(Self.longSession), in: app), in: app)
+        require(app.buttons["Enviar mensagem"], in: app)
+        let after = try XCTUnwrap(messagesInView(in: app).shown.first, "blank after the answer arrived")
+        XCTAssertTrue((reading - 1...reading).contains(after), "moved to \(after), was reading \(reading)")
     }
 
     @MainActor
@@ -396,7 +458,7 @@ extension ConversationUITests {
         require(file, in: app)
         let transcript = app.scrollViews["transcript"]
         for _ in 1...6 { transcript.scroll(byDeltaX: 0, deltaY: 600) }
-        let reading = try XCTUnwrap(shownMessages(in: app).first, "blank after scrolling up")
+        let reading = try XCTUnwrap(messagesInView(in: app).shown.first, "blank after scrolling up")
 
         file.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).click()
         let close = app.buttons["Fechar notas.txt"]
@@ -404,7 +466,7 @@ extension ConversationUITests {
         close.click()
 
         require(transcript, in: app)
-        let back = try XCTUnwrap(shownMessages(in: app).first, "blank back at the reading point")
+        let back = try XCTUnwrap(messagesInView(in: app).shown.first, "blank back at the reading point")
         XCTAssertTrue((reading - 1...reading).contains(back), "back at \(back), not at \(reading)")
     }
 
@@ -418,24 +480,32 @@ extension ConversationUITests {
         row.click()
 
         require(app.scrollViews["transcript"], in: app)
-        XCTAssertFalse(shownMessages(in: app).isEmpty)
+        XCTAssertFalse(messagesInView(in: app).shown.isEmpty)
+    }
+}
+
+extension ConversationUITests {
+    @MainActor
+    private func messagesInView(in app: XCUIApplication) -> (shown: [Int], highestDrawn: Int?) {
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        guard let transcript = try? app.scrollViews["transcript"].snapshot() else { return ([], nil) }
+        var numbered: [(number: Int, frame: CGRect)] = []
+        var pending = [transcript]
+        while let element = pending.popLast() {
+            pending += element.children
+            let text = (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
+            guard let number = Self.messageNumber(in: text) else { continue }
+            numbered.append((number, element.frame))
+        }
+        let shown = numbered.filter { transcript.frame.intersects($0.frame) && $0.frame.height > 0 }
+            .sorted { $0.frame.minY < $1.frame.minY }
+        return (shown.map(\.number), numbered.map(\.number).max())
     }
 
-    @MainActor
-    private func shownMessages(in app: XCUIApplication) -> [Int] {
-        RunLoop.current.run(until: Date().addingTimeInterval(1))
+    private static func messageNumber(in text: String) -> Int? {
         let prefix = RecordedSession.longMessagePrefix
-        let transcript = app.scrollViews["transcript"]
-        let frame = transcript.frame
-        let texts = transcript.staticTexts
-            .matching(NSPredicate(format: "value BEGINSWITH %@ OR label BEGINSWITH %@", prefix, prefix))
-            .allElementsBoundByIndex
-        return texts.filter { frame.intersects($0.frame) && $0.frame.height > 0 }
-            .sorted { $0.frame.minY < $1.frame.minY }
-            .compactMap { element in
-                let text = (element.value as? String).flatMap { $0.isEmpty ? nil : $0 } ?? element.label
-                return Int(text.dropFirst(prefix.count).prefix { $0.isNumber })
-            }
+        guard text.hasPrefix(prefix) else { return nil }
+        return Int(text.dropFirst(prefix.count).prefix { $0.isNumber })
     }
 }
 
