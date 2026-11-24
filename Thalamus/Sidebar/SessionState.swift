@@ -38,12 +38,16 @@ struct SessionTally: Equatable {
 }
 
 extension ChatModel {
+    var sessionStates: Set<SessionState> {
+        var states: Set<SessionState> = []
+        if pending != nil || pendingQuestion != nil { states.insert(.awaitingDecision) }
+        if isRateLimited { states.insert(.outOfTokens) }
+        if hasUnread { states.insert(.newReply) }
+        if isBusy { states.insert(.thinking) }
+        return states
+    }
+
     var sessionState: SessionState? {
-        var states: [SessionState] = []
-        if pending != nil || pendingQuestion != nil { states.append(.awaitingDecision) }
-        if isRateLimited { states.append(.outOfTokens) }
-        if hasUnread { states.append(.newReply) }
-        if isBusy { states.append(.thinking) }
-        return PrevailingState(states)?.state
+        sessionStates.min()
     }
 }

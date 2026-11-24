@@ -68,4 +68,8 @@ final class ThalamusAppDelegate: NSObject, NSApplicationDelegate {
         }
         return leaves ? .terminateNow : .terminateCancel
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        NapHold.shared.release()
+    }
 }
