@@ -4,6 +4,7 @@ protocol AppEnvironment {
     var sessionsRoot: URL { get }
     var attachmentsRoot: URL { get }
     var pullRequestsFile: URL { get }
+    var diagnosticsFile: URL { get }
     var ghOverride: String? { get }
     var nsOverride: String? { get }
     var nsConfigDirectory: String? { get }
@@ -32,6 +33,7 @@ extension RootedEnvironment {
     var sessionsRoot: URL { root.appending(path: "sessions") }
     var attachmentsRoot: URL { root.appending(path: "attachments") }
     var pullRequestsFile: URL { root.appending(path: "pull-requests.json") }
+    var diagnosticsFile: URL { root.appending(path: "diagnostics.log") }
     var workingDirectory: URL { root.appending(path: "project") }
 }
 

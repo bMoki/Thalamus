@@ -149,6 +149,12 @@ a tabela acima.
 
 Os testes unitários rodam dentro do Thalamus Dev e também não tocam no real.
 
+O `diagnostics.log`, na pasta de dados de cada app, guarda o que o Thalamus
+registra para pegar defeitos que os testes não reproduzem: quando mais de
+uma linha da sidebar continua em foco por mais de um segundo, ele grava as
+linhas e os últimos eventos da sidebar (foco, linhas mostradas, `ns status`,
+favoritos e grupos encolhidos). Ele recomeça vazio depois de 512 KB.
+
 Na primeira abertura, quando a pasta de dados dele ainda não existe, o
 Thalamus copia a do Den (`~/Library/Application Support/Den`) e as
 preferências `Den.*` do domínio `gabrielpassos.Den`, trocando o prefixo para
