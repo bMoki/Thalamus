@@ -92,6 +92,7 @@ final class WorkspaceModel {
         chat.metadataDidChange = { [weak self] in
             Task { @MainActor in await self?.refresh() }
         }
+        NapHold.shared.watch(chat)
     }
 
     // MARK: - Actions
