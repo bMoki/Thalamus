@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var gitChanges = GitChangesModel()
     @State private var files = FileTree()
     @State private var editors = EditorTabs(windows: .shared)
+    @State private var focusWatch: SidebarFocusWatch
 
     @State private var isFullScreen = false
 
@@ -18,6 +19,7 @@ struct ContentView: View {
 
     init(environment: any AppEnvironment) {
         _workspace = State(initialValue: WorkspaceModel.live(environment))
+        _focusWatch = State(initialValue: SidebarFocusWatch(log: DiagnosticsLog(url: environment.diagnosticsFile)))
     }
 
     var body: some View {
@@ -26,6 +28,7 @@ struct ContentView: View {
                 SidebarView(workspace: workspace, lightsInset: lightsInset,
                             collapse: toggleSidebar)
                     .frame(width: sidebarWidth)
+                    .environment(focusWatch)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 ResizeHandle(width: $sidebarWidth, range: 220...380)
             }

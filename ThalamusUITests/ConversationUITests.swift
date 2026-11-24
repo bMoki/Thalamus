@@ -1,6 +1,32 @@
 import AppKit
 import XCTest
 
+private let bigProject = """
+    mkdir -p admin-web/src orders-api/src
+    : > orders-api/pom.xml
+    i=0
+    while [ $i -lt 4100 ]; do
+      : > admin-web/src/f$i; : > orders-api/src/f$i
+      i=$((i + 1))
+    done
+    """
+
+private let backendWithWorktree = """
+    java=orders-domain/src/main/java/com/example/orders
+    for copy in orders-api worktrees/feature-1/orders-api; do
+      mkdir -p $copy/$java $copy/src
+      : > $copy/$java/OrderRepository.java
+    done
+    mkdir -p orders-api/.git orders-api/target/classes
+    echo "gitdir: $(pwd -P)/orders-api/.git/worktrees/orders-api" > worktrees/feature-1/orders-api/.git
+    i=0
+    while [ $i -lt 4100 ]; do
+      : > orders-api/src/f$i; : > orders-api/target/classes/f$i.class
+      : > worktrees/feature-1/orders-api/src/f$i
+      i=$((i + 1))
+    done
+    """
+
 /// Drives the real app through its accessibility tree. Each test gets its own
 /// data root and fake CLIs, so no real session, preference or CLI is touched.
 ///
@@ -89,17 +115,22 @@ final class ConversationUITests: XCTestCase {
         openComposer(in: app).typeText(text + "\n")
     }
 
+    @MainActor
+    private func launchAfterAFirstReply() throws -> XCUIApplication {
+        try claude.on(FakeCLI.userTurn, reply: RecordedSession.claude("hello"))
+        try claude.answerTitles(with: "Saudação curta")
+        let app = launch()
+        startConversation("Diga apenas OK e nada mais.", in: app)
+        require(app.staticTexts["OK"], in: app)
+        return app
+    }
+
     // MARK: - Conversation
 
     @MainActor
     func testAFirstConversationGetsItsReplyAndATitle() throws {
-        try claude.on(FakeCLI.userTurn, reply: RecordedSession.claude("hello"))
-        try claude.answerTitles(with: "Saudação curta")
-        let app = launch()
+        let app = try launchAfterAFirstReply()
 
-        startConversation("Diga apenas OK e nada mais.", in: app)
-
-        require(app.staticTexts["OK"], in: app)
         require(app.staticTexts["Saudação curta"], in: app)
         require(sidebarRow("project", in: app), in: app)
         XCTAssertEqual(claude.launches.count, 1)
@@ -241,31 +272,21 @@ final class ConversationUITests: XCTestCase {
 
     // MARK: - Mentions
 
-    private let bigProject = """
-        mkdir -p admin-web/src orders-api/src
-        : > orders-api/pom.xml
-        i=0
-        while [ $i -lt 4100 ]; do
-          : > admin-web/src/f$i; : > orders-api/src/f$i
-          i=$((i + 1))
-        done
-        """
+    @MainActor
+    func testTabCompletesASkillWithoutSendingIt() throws {
+        let app = try launchAfterAFirstReply()
 
-    private let backendWithWorktree = """
-        java=orders-domain/src/main/java/com/example/orders
-        for copy in orders-api worktrees/feature-1/orders-api; do
-          mkdir -p $copy/$java $copy/src
-          : > $copy/$java/OrderRepository.java
-        done
-        mkdir -p orders-api/.git orders-api/target/classes
-        echo "gitdir: $(pwd -P)/orders-api/.git/worktrees/orders-api" > worktrees/feature-1/orders-api/.git
-        i=0
-        while [ $i -lt 4100 ]; do
-          : > orders-api/src/f$i; : > orders-api/target/classes/f$i.class
-          : > worktrees/feature-1/orders-api/src/f$i
-          i=$((i + 1))
-        done
-        """
+        let composer = app.textViews["Peça uma alteração…"]
+        composer.typeText("/veri")
+        require(app.staticTexts["verify"], in: app)
+        composer.typeText("\t")
+
+        XCTAssertEqual(composer.value as? String, "/verify ")
+        XCTAssertFalse(app.staticTexts["verify"].exists)
+        composer.typeText("lib")
+        XCTAssertEqual(composer.value as? String, "/verify lib")
+        XCTAssertEqual(claude.received.filter { $0.contains(FakeCLI.userTurn) }.count, 1)
+    }
 
     @MainActor
     func testMentionsReachEveryFolderOfABigProject() {

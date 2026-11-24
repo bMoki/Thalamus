@@ -14,6 +14,7 @@ struct DevEnvironment: AppEnvironment {
     var sessionsRoot: URL { support.appending(path: "sessions") }
     var attachmentsRoot: URL { support.appending(path: "attachments") }
     var pullRequestsFile: URL { support.appending(path: "pull-requests.json") }
+    var diagnosticsFile: URL { support.appending(path: "diagnostics.log") }
     var registry: HarnessRegistry { .standard }
     var workingDirectory: URL { URL(fileURLWithPath: NSHomeDirectory()) }
     var nsConfigDirectory: String? { preference(NsConfigFolder.key) }
