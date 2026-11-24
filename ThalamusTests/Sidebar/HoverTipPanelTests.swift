@@ -1,5 +1,6 @@
 import Testing
 import AppKit
+import SwiftUI
 @testable import Thalamus
 
 private func tip(_ title: String, detail: String? = "Thalamus · Claude Code") -> PaneTip {
@@ -21,4 +22,13 @@ private func tip(_ title: String, detail: String? = "Thalamus · Claude Code") -
 
     #expect(size.width < PaneHoverCard.maxWidth)
     #expect(size.width >= 120 + 2 * PaneHoverCard.margin)
+}
+
+@MainActor
+@Test func theHoverCardKeepsTheSizeItWasMeasuredAt() {
+    let path = tip("project", detail: "/private/tmp/ThalamusUITests-\(UUID().uuidString)/project")
+    let size = HoverTipPanel.size(of: path)
+    let host = NSHostingView(rootView: PaneHoverCard(tip: path, width: size.width - 2 * PaneHoverCard.margin))
+
+    #expect(host.fittingSize == size)
 }
