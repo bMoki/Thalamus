@@ -2,15 +2,21 @@ import Foundation
 
 @MainActor
 final class EndFollower {
-    static let frameInterval: Duration = .milliseconds(16)
+    private static let frameInterval: Duration = .milliseconds(16)
 
+    private let nextFrame: () async -> Void
     private var pending = false
 
-    func follow(_ scroll: @escaping @MainActor () -> Void) {
-        guard !pending else { return }
+    init(nextFrame: @escaping () async -> Void = { try? await Task.sleep(for: EndFollower.frameInterval) }) {
+        self.nextFrame = nextFrame
+    }
+
+    @discardableResult
+    func follow(_ scroll: @escaping @MainActor () -> Void) -> Task<Void, Never>? {
+        guard !pending else { return nil }
         pending = true
-        Task {
-            try? await Task.sleep(for: Self.frameInterval)
+        return Task {
+            await nextFrame()
             pending = false
             scroll()
         }
