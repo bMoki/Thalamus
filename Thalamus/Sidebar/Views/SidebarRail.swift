@@ -28,6 +28,7 @@ struct PaneHoverCard: View {
     static var margin: CGFloat { Theme.space(.s12) }
 
     let tip: PaneTip
+    var width: CGFloat?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.space(.s3)) {
@@ -72,6 +73,7 @@ struct PaneHoverCard: View {
         }
         .padding(.horizontal, Theme.space(.s12))
         .padding(.vertical, Theme.space(.s10))
+        .frame(width: width, alignment: .leading)
         .frame(minWidth: 120, alignment: .leading)
         .foregroundStyle(Theme.text)
         .background(Theme.tip, in: RoundedRectangle(cornerRadius: Theme.radius(.r10), style: .continuous))
@@ -93,8 +95,8 @@ final class HoverTipPanel {
         guard let window = NSApp.mainWindow ?? NSApp.keyWindow,
               let content = window.contentView else { return }
 
-        let host = NSHostingView(rootView: PaneHoverCard(tip: tip))
         let size = Self.size(of: tip)
+        let host = NSHostingView(rootView: PaneHoverCard(tip: tip, width: size.width - 2 * PaneHoverCard.margin))
 
         let panel = self.panel ?? makePanel()
         panel.contentView = host
