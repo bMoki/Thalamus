@@ -60,13 +60,10 @@ nonisolated final class FakeCLI {
         try "1".write(to: directory.appending(path: "next"), atomically: true, encoding: .utf8)
     }
 
-    func on(_ trigger: String, reply lines: [String], pace: Double? = nil) throws {
+    func on(_ trigger: String, reply lines: [String]) throws {
         let step = try addStep(trigger)
         try lines.map { $0 + "\n" }.joined()
             .write(to: step.appendingPathExtension("reply"), atomically: true, encoding: .utf8)
-        if let pace {
-            try String(pace).write(to: step.appendingPathExtension("pace"), atomically: true, encoding: .utf8)
-        }
     }
 
     /// The CLI dies when the trigger arrives, the way a crash looks from outside.
@@ -189,12 +186,12 @@ nonisolated enum RecordedSession {
         return try claudePermission().untilAsking.dropLast() + [json(request)]
     }
 
-    static func claudeLong(_ numbers: ClosedRange<Int>) throws -> [String] {
+    static func claudeLong(_ count: Int) throws -> [String] {
         let hello = try claude("hello")
         guard let firstDelta = hello.firstIndex(where: { $0.contains(#""text_delta""#) }),
               let session = hello.first.flatMap(sessionID(in:))
         else { throw CocoaError(.fileReadCorruptFile) }
-        let texts = numbers.map(longMessage)
+        let texts = (1...count).map(longMessage)
         let whole = Array(texts.joined(separator: "\n\n"))
         let size = 48
         let chunks = stride(from: 0, to: whole.count, by: size).map { String(whole[$0..<min($0 + size, whole.count)]) }
@@ -204,7 +201,7 @@ nonisolated enum RecordedSession {
                                 "delta": ["type": "text_delta", "text": chunk]]])
         }
         let answer = try json(["type": "assistant", "session_id": session,
-                               "message": ["id": "msg_long_\(numbers.lowerBound)", "type": "message", "role": "assistant",
+                               "message": ["id": "msg_long", "type": "message", "role": "assistant",
                                            "content": texts.map { ["type": "text", "text": $0] }]])
         let rest = hello[firstDelta...].filter { !$0.contains(#""text_delta""#) && !$0.contains(#""type":"assistant""#) }
         return Array(hello[..<firstDelta]) + deltas + [answer] + rest

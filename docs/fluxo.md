@@ -149,12 +149,6 @@ a tabela acima.
 
 Os testes unitários rodam dentro do Thalamus Dev e também não tocam no real.
 
-Só no Thalamus Dev, quando o fim da conversa está à vista e nenhuma mensagem
-aparece, o chat registra no log do sistema a Sessão e o que tinha acabado de
-acontecer (pedaço de streaming, fim de turno ou `scrollTo`). Para ver:
-`log stream --predicate 'subsystem == "dev.brenosonda.Thalamus.dev" AND category == "transcript"'`,
-ou o Console com o mesmo filtro.
-
 O `diagnostics.log`, na pasta de dados de cada app, guarda o que o Thalamus
 registra para pegar defeitos que os testes não reproduzem: quando mais de
 uma linha da sidebar continua em foco por mais de um segundo, ele grava as
