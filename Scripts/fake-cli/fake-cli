@@ -56,12 +56,5 @@ while IFS= read -r line; do
     cat "$step.stderr" >&2
     exit "$(cat "$step.exit")"
   fi
-  if [ -f "$step.pace" ]; then
-    sed "s/__ID__/$request/g" "$step.reply" | while IFS= read -r reply; do
-      printf '%s\n' "$reply"
-      sleep "$(cat "$step.pace")"
-    done
-  else
-    sed "s/__ID__/$request/g" "$step.reply"
-  fi
+  sed "s/__ID__/$request/g" "$step.reply"
 done
